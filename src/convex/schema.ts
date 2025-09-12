@@ -30,6 +30,11 @@ const schema = defineSchema(
       isAnonymous: v.optional(v.boolean()), // is the user anonymous. do not remove
 
       role: v.optional(roleValidator), // role of the user. do not remove
+      // Add lightweight profile keys to store user data
+      profile: v.optional(v.object({
+        phone: v.optional(v.string()),
+        organization: v.optional(v.string()),
+      })),
     }).index("email", ["email"]), // index for the email. do not remove or modify
 
     // Agriculture platform tables
@@ -179,6 +184,23 @@ const schema = defineSchema(
       data: v.any(),
     }).index("by_field", ["fieldId"])
       .index("by_user", ["generatedBy"]),
+
+    plantImages: defineTable({
+      userId: v.id("users"),
+      fieldId: v.optional(v.id("fields")),
+      storageId: v.id("_storage"),
+      title: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      status: v.union(
+        v.literal("uploaded"),
+        v.literal("processing"),
+        v.literal("completed"),
+        v.literal("failed"),
+      ),
+      analysisResult: v.optional(v.any()),
+    })
+      .index("by_user", ["userId"])
+      .index("by_field", ["fieldId"]),
   },
   {
     schemaValidation: false,

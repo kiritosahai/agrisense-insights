@@ -19,8 +19,11 @@ import type * as auth from "../auth.js";
 import type * as farms from "../farms.js";
 import type * as fields from "../fields.js";
 import type * as http from "../http.js";
+import type * as maps from "../maps.js";
 import type * as mockData from "../mockData.js";
+import type * as plantImages from "../plantImages.js";
 import type * as sensorData from "../sensorData.js";
+import type * as uploads from "../uploads.js";
 import type * as users from "../users.js";
 
 /**
@@ -38,8 +41,11 @@ declare const fullApi: ApiFromModules<{
   farms: typeof farms;
   fields: typeof fields;
   http: typeof http;
+  maps: typeof maps;
   mockData: typeof mockData;
+  plantImages: typeof plantImages;
   sensorData: typeof sensorData;
+  uploads: typeof uploads;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

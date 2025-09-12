@@ -26,6 +26,7 @@ import TimeSeriesPanel from "@/components/TimeSeriesPanel";
 import AlertsPanel from "@/components/AlertsPanel";
 import FarmSelector from "@/components/FarmSelector";
 import { Id } from "@/convex/_generated/dataModel";
+import UploadPlantImage from "@/components/UploadPlantImage";
 
 export default function Dashboard() {
   const { isLoading, isAuthenticated, user, signOut } = useAuth();
@@ -260,12 +261,13 @@ export default function Dashboard() {
                     </Card>
                   </div>
 
-                  {/* Alerts */}
-                  <div>
+                  {/* Right column: Alerts + Upload */}
+                  <div className="space-y-6">
                     <AlertsPanel 
                       fieldId={selectedFieldId}
                       alerts={alerts || []}
                     />
+                    <UploadPlantImage fieldId={selectedFieldId} />
                   </div>
                 </div>
               </TabsContent>

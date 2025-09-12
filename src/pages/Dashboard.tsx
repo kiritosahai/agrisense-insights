@@ -1,0 +1,290 @@
+import { useAuth } from "@/hooks/use-auth";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Navigate } from "react-router";
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  MapPin, 
+  Thermometer, 
+  Droplets, 
+  Leaf, 
+  AlertTriangle,
+  TrendingUp,
+  Calendar,
+  Settings,
+  LogOut,
+  Menu,
+  X
+} from "lucide-react";
+import MapCanvas from "@/components/MapCanvas";
+import TimeSeriesPanel from "@/components/TimeSeriesPanel";
+import AlertsPanel from "@/components/AlertsPanel";
+import FarmSelector from "@/components/FarmSelector";
+import { Id } from "@/convex/_generated/dataModel";
+
+export default function Dashboard() {
+  const { isLoading, isAuthenticated, user, signOut } = useAuth();
+  const [selectedFarmId, setSelectedFarmId] = useState<Id<"farms"> | null>(null);
+  const [selectedFieldId, setSelectedFieldId] = useState<Id<"fields"> | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const farms = useQuery(api.farms.getUserFarms);
+  const fields = selectedFarmId ? useQuery(api.fields.getFieldsByFarm, { farmId: selectedFarmId }) : undefined;
+  const alerts = selectedFieldId ? useQuery(api.alerts.getFieldAlerts, { fieldId: selectedFieldId }) : undefined;
+  const latestReadings = selectedFieldId ? useQuery(api.sensorData.getLatestSensorReadings, { fieldId: selectedFieldId }) : undefined;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  const getSensorIcon = (type: string) => {
+    switch (type) {
+      case "temperature": return <Thermometer className="h-4 w-4" />;
+      case "soil_moisture": return <Droplets className="h-4 w-4" />;
+      case "humidity": return <Droplets className="h-4 w-4" />;
+      case "leaf_wetness": return <Leaf className="h-4 w-4" />;
+      default: return <TrendingUp className="h-4 w-4" />;
+    }
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case "critical": return "destructive";
+      case "high": return "destructive";
+      case "medium": return "secondary";
+      case "low": return "outline";
+      default: return "outline";
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <motion.div 
+        initial={false}
+        animate={{ x: sidebarOpen ? 0 : -320 }}
+        className="fixed left-0 top-0 h-full w-80 bg-card border-r z-50 lg:translate-x-0 lg:static lg:z-auto"
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="p-6 border-b">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <Leaf className="h-5 w-5 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="font-bold text-lg tracking-tight">AgriSense</h1>
+                  <p className="text-sm text-muted-foreground">Precision Agriculture</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Farm Selector */}
+          <div className="p-6 border-b">
+            <FarmSelector
+              farms={farms || []}
+              selectedFarmId={selectedFarmId}
+              onFarmSelect={setSelectedFarmId}
+              onFieldSelect={setSelectedFieldId}
+              fields={fields || []}
+              selectedFieldId={selectedFieldId}
+            />
+          </div>
+
+          {/* Latest Sensor Readings */}
+          {latestReadings && latestReadings.length > 0 && (
+            <div className="p-6 border-b">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Latest Readings
+              </h3>
+              <div className="space-y-3">
+                {latestReadings.slice(0, 4).map((reading) => (
+                  <div key={reading._id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {getSensorIcon(reading.sensorType)}
+                      <span className="text-sm capitalize">
+                        {reading.sensorType.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <span className="text-sm font-medium">
+                      {reading.value.toFixed(1)} {reading.unit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex-1 p-6">
+            <nav className="space-y-2">
+              <Button variant="ghost" className="w-full justify-start gap-2">
+                <MapPin className="h-4 w-4" />
+                Field Overview
+              </Button>
+              <Button variant="ghost" className="w-full justify-start gap-2">
+                <Calendar className="h-4 w-4" />
+                Schedule
+              </Button>
+              <Button variant="ghost" className="w-full justify-start gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Button>
+            </nav>
+          </div>
+
+          {/* User Menu */}
+          <div className="p-6 border-t">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                <span className="text-sm font-medium">
+                  {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {user?.name || 'User'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user?.email}
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              className="w-full gap-2"
+              onClick={() => signOut()}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Main Content */}
+      <div className="lg:ml-80">
+        {/* Top Bar */}
+        <div className="h-16 border-b bg-card px-6 flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+          
+          <div className="flex items-center gap-4">
+            {selectedFieldId && alerts && (
+              <Badge variant={alerts.length > 0 ? "destructive" : "secondary"}>
+                {alerts.length} Active Alerts
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Dashboard Content */}
+        <div className="p-6">
+          {!selectedFieldId ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-12"
+            >
+              <Leaf className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h2 className="text-xl font-semibold mb-2">Select a Field</h2>
+              <p className="text-muted-foreground">
+                Choose a farm and field from the sidebar to view detailed analytics
+              </p>
+            </motion.div>
+          ) : (
+            <Tabs defaultValue="overview" className="space-y-6">
+              <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                <TabsTrigger value="alerts">Alerts</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-6">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                  {/* Map */}
+                  <div className="xl:col-span-2">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <MapPin className="h-5 w-5" />
+                          Field Map
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <div className="h-96">
+                          <MapCanvas 
+                            fieldId={selectedFieldId}
+                            fields={fields || []}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Alerts */}
+                  <div>
+                    <AlertsPanel 
+                      fieldId={selectedFieldId}
+                      alerts={alerts || []}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="analytics" className="space-y-6">
+                <TimeSeriesPanel fieldId={selectedFieldId} />
+              </TabsContent>
+
+              <TabsContent value="alerts" className="space-y-6">
+                <AlertsPanel 
+                  fieldId={selectedFieldId}
+                  alerts={alerts || []}
+                  expanded={true}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

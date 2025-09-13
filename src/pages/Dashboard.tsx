@@ -26,7 +26,7 @@ import MapCanvas from "@/components/MapCanvas";
 import TimeSeriesPanel from "@/components/TimeSeriesPanel";
 import AlertsPanel from "@/components/AlertsPanel";
 import FarmSelector from "@/components/FarmSelector";
-import { Id } from "@/convex/_generated/dataModel";
+import { Id, Doc } from "@/convex/_generated/dataModel";
 import UploadPlantImage from "@/components/UploadPlantImage";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
@@ -39,22 +39,17 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const farms = useQuery(api.farms.getUserFarms);
-  const fields = useQuery(
-    api.fields.getFieldsByFarm,
-    selectedFarmId ? { farmId: selectedFarmId } : "skip" // pause until a farm is selected
-  );
-  const alerts = useQuery(
-    api.alerts.getFieldAlerts,
-    selectedFieldId ? { fieldId: selectedFieldId } : "skip" // pause until a field is selected
-  );
-  const latestReadings = useQuery(
-    api.sensorData.getLatestSensorReadings,
-    selectedFieldId ? { fieldId: selectedFieldId } : "skip" // pause until a field is selected
-  );
-  const plantImages = useQuery(
-    api.plantImages.listForField,
-    selectedFieldId ? { fieldId: selectedFieldId } : "skip" // pause until a field is selected
-  );
+
+  // Add stable args to ensure we never pass {} and always pass "skip" when missing
+  const fieldsArgs = selectedFarmId ? ({ farmId: selectedFarmId } as const) : "skip";
+  const alertsArgs = selectedFieldId ? ({ fieldId: selectedFieldId } as const) : "skip";
+  const latestArgs = selectedFieldId ? ({ fieldId: selectedFieldId } as const) : "skip";
+  const imagesArgs = selectedFieldId ? ({ fieldId: selectedFieldId } as const) : "skip";
+
+  const fields = useQuery(api.fields.getFieldsByFarm, fieldsArgs);
+  const alerts = useQuery(api.alerts.getFieldAlerts, alertsArgs);
+  const latestReadings = useQuery(api.sensorData.getLatestSensorReadings, latestArgs);
+  const plantImages = useQuery(api.plantImages.listForField, imagesArgs);
 
   const createFarm = useMutation(api.farms.createFarm);
   const generateMock = useMutation(api.mockData.generateMockData);
@@ -123,7 +118,7 @@ export default function Dashboard() {
   };
 
   const readingByType = (type: string) =>
-    latestReadings?.find((r: any) => r.sensorType === type);
+    latestReadings?.find((r: Doc<"sensorReadings">) => r.sensorType === type);
 
   return (
     <div className="min-h-screen bg-background">
@@ -185,7 +180,7 @@ export default function Dashboard() {
                 Latest Readings
               </h3>
               <div className="space-y-3">
-                {latestReadings.slice(0, 4).map((reading: any) => (
+                {latestReadings.slice(0, 4).map((reading: Doc<"sensorReadings">) => (
                   <div key={reading._id} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {getSensorIcon(reading.sensorType)}
@@ -421,7 +416,7 @@ export default function Dashboard() {
                       <div className="text-sm text-muted-foreground">No images uploaded yet.</div>
                     ) : (
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                        {plantImages.slice(0, 12).map((img: any) => (
+                        {plantImages.slice(0, 12).map((img: Doc<"plantImages"> & { fileUrl: string | null }) => (
                           <div key={img._id} className="group border rounded-lg overflow-hidden bg-card">
                             {/* fileUrl is returned by backend; fallback to empty if missing */}
                             <img

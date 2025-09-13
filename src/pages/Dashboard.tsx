@@ -26,10 +26,11 @@ import MapCanvas from "@/components/MapCanvas";
 import TimeSeriesPanel from "@/components/TimeSeriesPanel";
 import AlertsPanel from "@/components/AlertsPanel";
 import FarmSelector from "@/components/FarmSelector";
-import { Id } from "@/convex/_generated/dataModel";
+import { Id, Doc } from "@/convex/_generated/dataModel";
 import UploadPlantImage from "@/components/UploadPlantImage";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
+import { Image as ImageIcon } from "lucide-react";
 
 export default function Dashboard() {
   const { isLoading, isAuthenticated, user, signOut } = useAuth();
@@ -38,9 +39,10 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const farms = useQuery(api.farms.getUserFarms);
-  const fields = selectedFarmId ? useQuery(api.fields.getFieldsByFarm, { farmId: selectedFarmId }) : undefined;
-  const alerts = selectedFieldId ? useQuery(api.alerts.getFieldAlerts, { fieldId: selectedFieldId }) : undefined;
-  const latestReadings = selectedFieldId ? useQuery(api.sensorData.getLatestSensorReadings, { fieldId: selectedFieldId }) : undefined;
+  const fields = useQuery(api.fields.getFieldsByFarm, selectedFarmId ? { farmId: selectedFarmId } : "skip");
+  const alerts = useQuery(api.alerts.getFieldAlerts, selectedFieldId ? { fieldId: selectedFieldId } : "skip");
+  const latestReadings = useQuery(api.sensorData.getLatestSensorReadings, selectedFieldId ? { fieldId: selectedFieldId } : "skip");
+  const plantImages = useQuery(api.plantImages.listForField, selectedFieldId ? { fieldId: selectedFieldId } : "skip");
 
   const createFarm = useMutation(api.farms.createFarm);
   const generateMock = useMutation(api.mockData.generateMockData);
@@ -108,6 +110,9 @@ export default function Dashboard() {
     }
   };
 
+  const readingByType = (type: string) =>
+    latestReadings?.find((r: Doc<"sensorReadings">) => r.sensorType === type);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Sidebar Overlay */}
@@ -168,7 +173,7 @@ export default function Dashboard() {
                 Latest Readings
               </h3>
               <div className="space-y-3">
-                {latestReadings.slice(0, 4).map((reading) => (
+                {latestReadings.slice(0, 4).map((reading: Doc<"sensorReadings">) => (
                   <div key={reading._id} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {getSensorIcon(reading.sensorType)}
@@ -295,6 +300,69 @@ export default function Dashboard() {
               </TabsList>
 
               <TabsContent value="overview" className="space-y-6">
+                {/* Quick Stats */}
+                {selectedFieldId && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                          <Thermometer className="h-4 w-4" />
+                          Temperature
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">
+                          {readingByType("temperature") ? `${readingByType("temperature")!.value.toFixed(1)} ${readingByType("temperature")!.unit}` : "--"}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Latest reading</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                          <Droplets className="h-4 w-4" />
+                          Humidity
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">
+                          {readingByType("humidity") ? `${readingByType("humidity")!.value.toFixed(0)} ${readingByType("humidity")!.unit}` : "--"}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Latest reading</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                          <Droplets className="h-4 w-4" />
+                          Soil Moisture
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">
+                          {readingByType("soil_moisture") ? `${readingByType("soil_moisture")!.value.toFixed(0)} ${readingByType("soil_moisture")!.unit}` : "--"}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Latest reading</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+                          <AlertTriangle className="h-4 w-4" />
+                          Active Alerts
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{alerts ? alerts.length : 0}</div>
+                        <p className="text-xs text-muted-foreground">For selected field</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                   {/* Map */}
                   <div className="xl:col-span-2">
@@ -325,6 +393,47 @@ export default function Dashboard() {
                     <UploadPlantImage fieldId={selectedFieldId} />
                   </div>
                 </div>
+
+                {/* Recent Uploads */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ImageIcon className="h-5 w-5" />
+                      Recent Uploads
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {!plantImages ? (
+                      <div className="h-24 bg-muted rounded animate-pulse" />
+                    ) : plantImages.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No images uploaded yet.</div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                        {plantImages.slice(0, 12).map((img: Doc<"plantImages"> & { fileUrl: string | null }) => (
+                          <div key={img._id} className="group border rounded-lg overflow-hidden bg-card">
+                            {/* fileUrl is returned by backend; fallback to empty if missing */}
+                            <img
+                              src={img.fileUrl || ""}
+                              alt={img.title || "Plant image"}
+                              className="aspect-square w-full object-cover"
+                              loading="lazy"
+                            />
+                            <div className="p-2">
+                              <div className="text-xs font-medium truncate">
+                                {img.title || "Untitled"}
+                              </div>
+                              {img.notes && (
+                                <div className="text-[10px] text-muted-foreground truncate">
+                                  {img.notes}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               <TabsContent value="analytics" className="space-y-6">

@@ -48,10 +48,20 @@ export const listForField = query({
     const farm = await ctx.db.get(field.farmId);
     if (!farm || farm.ownerId !== user._id) return [];
 
-    return await ctx.db
+    const docs = await ctx.db
       .query("plantImages")
       .withIndex("by_field", (q) => q.eq("fieldId", args.fieldId))
       .order("desc")
       .collect();
+
+    // Add signed URLs so the frontend can render thumbnails
+    const withUrls = await Promise.all(
+      docs.map(async (d) => {
+        const url = await ctx.storage.getUrl(d.storageId);
+        return { ...d, fileUrl: url };
+      })
+    );
+
+    return withUrls;
   },
 });
